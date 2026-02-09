@@ -44,12 +44,14 @@ def get_clients():
 
 @app.route('/api/register', methods=['POST'])
 def register_client():
-    """Rejestracja nowego klienta"""
     try:
-        data = request.json
+        data = request.json or {}
         client_id = data.get('id')
         client_name = data.get('name', 'Klient')
-        
+
+        if not client_id:
+            return jsonify({'success': False, 'error': 'missing_id'})
+
         with client_lock:
             clients[client_id] = {
                 'name': client_name,
@@ -58,36 +60,48 @@ def register_client():
                 'command_time': None,
                 'ip': request.remote_addr
             }
-        
-        print(f"✅ Zarejestrowano klienta: {client_id}")
+
+        print(f"✅ Rejestracja klienta: {client_id}")
         return jsonify({'success': True})
+
     except Exception as e:
         print(f"❌ Błąd rejestracji: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False})
 
 @app.route('/api/get_command', methods=['POST'])
 def get_command():
-    """Klient pobiera swoją komendę"""
     try:
-        data = request.json
+        data = request.json or {}
         client_id = data.get('id')
-        
+
         with client_lock:
-            if client_id in clients:
-                # Aktualizuj czas ostatniej aktywności
-                clients[client_id]['last_seen'] = time.time()
-                
-                # Sprawdź czy jest komenda
-                command = clients[client_id].get('command')
-                if command:
-                    # Wyczyść komendę po pobraniu
-                    clients[client_id]['command'] = None
-                    return jsonify({'command': command})
-        
-        return jsonify({'command': None})
+            if client_id not in clients:
+                return jsonify({
+                    'registered': False,
+                    'error': 'not_registered'
+                })
+
+            clients[client_id]['last_seen'] = time.time()
+
+            command = clients[client_id].get('command')
+            if command:
+                clients[client_id]['command'] = None
+                return jsonify({
+                    'registered': True,
+                    'command': command
+                })
+
+        return jsonify({
+            'registered': True,
+            'command': None
+        })
+
     except Exception as e:
-        print(f"❌ Błąd pobierania komendy: {e}")
-        return jsonify({'command': None})
+        print(f"❌ Błąd get_command: {e}")
+        return jsonify({
+            'registered': False,
+            'error': 'server_error'
+        })
 
 @app.route('/api/send_command', methods=['POST'])
 def send_command():
@@ -111,8 +125,12 @@ def send_command():
 
 @app.route('/api/ping')
 def ping():
-    """Sprawdzenie statusu serwera"""
-    return jsonify({'status': 'online', 'clients_count': len(clients)})
+    return jsonify({
+        'status': 'online',
+        'clients_count': len(clients),
+        'time': time.time()
+    })
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
