@@ -408,6 +408,165 @@
             text-align: center;
         }
 
+        .client-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        
+        .action-btn {
+            padding: 3px 8px;
+            font-size: 0.8em;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        
+        .edit-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .edit-btn:hover {
+            background: #45a049;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            min-width: 400px;
+            max-width: 600px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        
+        .modal-title {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #777;
+        }
+        
+        .close-modal:hover {
+            color: #333;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+        
+        .form-textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9em;
+            min-height: 100px;
+            font-family: monospace;
+            white-space: pre;
+            overflow: auto;
+        }
+        
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .save-btn {
+            padding: 8px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .save-btn:hover {
+            background: #45a049;
+        }
+        
+        .cancel-btn {
+            padding: 8px 20px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .cancel-btn:hover {
+            background: #da190b;
+        }
+        
+        .client-name-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .custom-name-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+        
+        .help-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -492,20 +651,45 @@
                     </div>
                 </div>
 
+
                 <!-- W sekcji command-buttons zmień przycisk kamery na: -->
                 <button class="command-btn camera-btn" onclick="sendCommand('camera')">
                     Sprawdź kamerę
                 </button>
                 
+                <div class="modal" id="editModal">
+                <div class="modal-content">
+                        <div class="modal-header">
+                            <div class="modal-title">Edytuj nazwy klientów</div>
+                            <button class="close-modal" onclick="closeEditModal()">×</button>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Edytuj plik name.txt:</label>
+                            <textarea class="form-textarea" id="namesTextarea" placeholder="ID_KLIENTA=Nowa Nazwa Klienta"></textarea>
+                            <div class="help-text">
+                                Format: Każda linia to ID=Nazwa<br>
+                                Przykład:<br>
+                                abc123=Kamil Komputer<br>
+                                def456=Gabinet Prezesa<br>
+                                xyz789=Sala Konferencyjna
+                            </div>
+                        </div>
+                        
+                        <div class="modal-actions">
+                            <button class="cancel-btn" onclick="closeEditModal()">Anuluj</button>
+                            <button class="save-btn" onclick="saveNames()">Zapisz zmiany</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="command-buttons">
                     <button class="command-btn danger" onclick="sendCommand('reset')">Restart komputera</button>
                     <button class="command-btn" onclick="sendCommand('hideallwindows')">Ukryj wszystkie okna</button>
                     <button class="command-btn" onclick="sendCommand('call musk')">Elon Musk</button>
                     <button class="command-btn" onclick="sendCommand('call trump')">Donald Trump</button>
                     <button class="command-btn" onclick="sendCommand('call epstine')">Jeffrey Epstein</button>
-                    <button class="command-btn" onclick="sendCommand('screenshot')">Zrób screenshot</button>  
-                    <button class="command-btn" onclick="sendCommand('cdroom open')">cdroom otwórz</button> 
-                    <button class="command-btn" onclick="sendCommand('cdroom close')">cdroom zamknij</button>  
+                    <button class="command-btn" onclick="sendCommand('screenshot')">Zrób screenshot</button>   
                 </div>
                 
                 <div style="margin-top: 20px;">
@@ -525,9 +709,180 @@
         let selectedClient = null;
         let screenshotRefreshInterval = null;
         let currentScreenshotData = null;
-        // Dodaj do istniejącego kodu JavaScript
         let cameraRefreshInterval = null;
         let currentCameraData = null;
+        let clientNames = {};
+
+        function loadClientNames() {
+            fetch('/api/get_client_names')
+                .then(response => response.json())
+                .then(names => {
+                    clientNames = names;
+                    updateClients();
+                })
+                .catch(error => {
+                    console.error('Błąd ładowania nazw:', error);
+                    clientNames = {};
+                    updateClients();
+                });
+        }
+
+        function loadAllClients() {
+            fetch('/api/get_all_clients')
+                .then(response => response.json())
+                .then(clients => {
+                    window.allClients = clients; // Zapisz w zmiennej globalnej
+                })
+                .catch(error => {
+                    console.error('Błąd ładowania klientów:', error);
+                    window.allClients = [];
+                });
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        function saveNames() {
+            const fileContent = document.getElementById('namesTextarea').value.trim();
+            
+            fetch('/api/save_names_file', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    content: fileContent
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Nazwy zapisane pomyślnie!');
+                    closeEditModal();
+                    loadClientNames(); // Odśwież nazwy
+                } else {
+                    alert('Błąd zapisu: ' + (data.error || 'Nieznany błąd'));
+                }
+            })
+            .catch(error => {
+                console.error('Błąd:', error);
+                alert('Błąd połączenia z serwerem!');
+            });
+        }
+
+
+        function updateClients() {
+            fetch('/api/get_clients_with_camera')
+                .then(response => response.json())
+                .then(clients => {
+                    const clientList = document.getElementById('clientList');
+                    
+                    if (clients.length === 0) {
+                        clientList.innerHTML = '<div class="no-clients">Brak aktywnych klientów</div>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    clients.forEach(client => {
+                        const statusClass = client.status === 'active' ? 'status-active' : 'status-inactive';
+                        const isSelected = selectedClient && selectedClient.id === client.id ? 'selected-client' : '';
+                        const hasScreenshotClass = client.has_screenshot ? 'screenshot-available' : '';
+                        const hasCameraClass = client.has_camera ? 'camera-available' : '';
+                        
+                        const icons = [];
+                        if (client.has_screenshot) icons.push('📸');
+                        if (client.has_camera) icons.push('📷');
+                        const iconsHtml = icons.join(' ');
+                        
+                        // Sprawdź czy klient ma niestandardową nazwę
+                        const displayName = clientNames[client.id] || client.name || `Klient ${client.id.substring(0, 6)}`;
+                        const hasCustomName = clientNames[client.id] !== undefined;
+                        
+                        html += `
+                            <div class="client-item ${isSelected} ${hasScreenshotClass} ${hasCameraClass}">
+                                <div style="position: absolute; left: 10px; top: 10px; font-size: 0.8em;">
+                                    ${iconsHtml}
+                                </div>
+                                <div class="client-info" style="margin-left: 30px;">
+                                    <div class="client-name-display">
+                                        <strong style="cursor: pointer;" onclick="selectClient('${client.id}')">
+                                            ${displayName}
+                                        </strong>
+                                        ${hasCustomName ? '<span class="custom-name-badge">niestandardowa</span>' : ''}
+                                    </div>
+                                    <div class="client-id">ID: ${client.id}</div>
+                                    <div>IP: ${client.ip}</div>
+                                    <div class="client-actions">
+                                        <button class="action-btn edit-btn" onclick="openEditModal('${client.id}', '${escapeHtml(displayName)}')">
+                                            Edytuj nazwę
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="client-status ${statusClass}">
+                                    ${client.status}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    clientList.innerHTML = html;
+                })
+                .catch(error => console.error('Błąd ładowania klientów:', error));
+        }
+
+        function openEditModal(clientId, currentName) {
+            selectedClient = { id: clientId };
+            
+            // Pobierz aktualną zawartość pliku name.txt
+            fetch('/api/get_names_file')
+                .then(response => response.text())
+                .then(fileContent => {
+                    document.getElementById('namesTextarea').value = fileContent;
+                    document.getElementById('editModal').style.display = 'flex';
+                    
+                    // Podświetl linię z aktualnym klientem
+                    setTimeout(() => {
+                        highlightClientLine(clientId);
+                    }, 100);
+                })
+                .catch(error => {
+                    console.error('Błąd ładowania pliku:', error);
+                    document.getElementById('namesTextarea').value = '';
+                    document.getElementById('editModal').style.display = 'flex';
+                });
+        }
+
+        // Podświetl linię z klientem
+        function highlightClientLine(clientId) {
+            const textarea = document.getElementById('namesTextarea');
+            const lines = textarea.value.split('\n');
+            const lineIndex = lines.findIndex(line => line.startsWith(clientId + '='));
+            
+            if (lineIndex !== -1) {
+                // Przewiń do linii
+                const lineHeight = 20; // Przybliżona wysokość linii
+                textarea.scrollTop = lineIndex * lineHeight;
+                
+                // Zaznacz linię
+                const startPos = textarea.value.indexOf(lines[lineIndex]);
+                const endPos = startPos + lines[lineIndex].length;
+                textarea.setSelectionRange(startPos, endPos);
+                textarea.focus();
+            } else {
+                // Jeśli nie ma linii, dodaj nową na końcu
+                const newLine = `${clientId}=${clientNames[clientId] || ''}`;
+                if (textarea.value.trim() === '') {
+                    textarea.value = newLine;
+                } else {
+                    textarea.value += '\n' + newLine;
+                }
+                textarea.focus();
+                textarea.setSelectionRange(textarea.value.length - newLine.length, textarea.value.length);
+            }
+        }
+
+
 
         // Załaduj screenshot
         function loadScreenshot(clientId) {
