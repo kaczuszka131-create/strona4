@@ -527,6 +527,50 @@
         let cameraRefreshInterval = null;
         let currentCameraData = null;
 
+        // Załaduj screenshot
+        function loadScreenshot(clientId) {
+            if (!clientId) return;
+            
+            const timestamp = new Date().getTime();
+            const screenshotUrl = `/api/get_screenshot/${clientId}?t=${timestamp}`;
+            const screenshotImage = document.getElementById('screenshotImage');
+            const screenshotInfo = document.getElementById('screenshotInfo');
+            
+            screenshotImage.onload = function() {
+                const img = this;
+                screenshotInfo.innerHTML = `
+                    Rozmiar: ${img.naturalWidth} × ${img.naturalHeight}px<br>
+                    Ostatnia aktualizacja: ${new Date().toLocaleTimeString()}
+                `;
+                
+                currentScreenshotData = {
+                    src: img.src,
+                    width: img.naturalWidth,
+                    height: img.naturalHeight,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+            };
+            
+            screenshotImage.onerror = function() {
+                screenshotInfo.textContent = "Brak dostępnego screenshotu";
+                screenshotImage.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSI+QnJhayBzY3JlZW5zaG90dTwvdGV4dD48L3N2Zz4=";
+            };
+            
+            screenshotImage.src = screenshotUrl;
+        }
+
+        // Odśwież screenshot
+        function refreshScreenshot() {
+            if (selectedClient) {
+                loadScreenshot(selectedClient.id);
+            }
+        }
+
+        // Zamknij pełny ekran (brakująca funkcja)
+        function closeFullscreen() {
+            document.getElementById('fullscreenOverlay').style.display = 'none';
+        }
+
         // Wybierz klienta - zaktualizowana funkcja
         function selectClient(clientId) {
             selectedClient = { id: clientId };
