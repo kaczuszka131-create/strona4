@@ -1,10 +1,16 @@
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_cors import CORS
 import time
 import threading
+import base64
+from datetime import datetime
+import os
 
 app = Flask(__name__)
 CORS(app)
+
+SCREENSHOTS_DIR = "screenshots"
+os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 
 # Przechowywanie klientów
 clients = {}
@@ -13,6 +19,94 @@ client_lock = threading.Lock()
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/api/upload_screenshot', methods=['POST'])
+def upload_screenshot():
+    """Endpoint do uploadu screenshotów"""
+    try:
+        client_id = request.form.get('id')
+        if not client_id:
+            return jsonify({'success': False, 'error': 'missing_id'})
+        
+        if 'screenshot' not in request.files:
+            return jsonify({'success': False, 'error': 'no_file'})
+        
+        file = request.files['screenshot']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'empty_file'})
+        
+        # Zapisz screenshot z nazwą zawierającą ID klienta i timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{client_id}_{timestamp}.png"
+        filepath = os.path.join(SCREENSHOTS_DIR, filename)
+        
+        # Zapisz plik
+        file.save(filepath)
+        
+        # Zaktualizuj dane klienta
+        with client_lock:
+            if client_id in clients:
+                clients[client_id]['last_screenshot'] = filename
+                clients[client_id]['last_screenshot_time'] = time.time()
+        
+        print(f"📸 Screenshot otrzymany od klienta {client_id}")
+        return jsonify({'success': True, 'filename': filename})
+        
+    except Exception as e:
+        print(f"❌ Błąd uploadu screenshotu: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/get_screenshot/<client_id>')
+def get_screenshot(client_id):
+    """Pobierz najnowszy screenshot klienta"""
+    try:
+        with client_lock:
+            if client_id in clients:
+                filename = clients[client_id].get('last_screenshot')
+                if filename:
+                    filepath = os.path.join(SCREENSHOTS_DIR, filename)
+                    if os.path.exists(filepath):
+                        # Sprawdź czy screenshot nie jest starszy niż 5 minut
+                        screenshot_time = clients[client_id].get('last_screenshot_time', 0)
+                        if time.time() - screenshot_time < 300:  # 5 minut
+                            return send_from_directory(SCREENSHOTS_DIR, filename)
+        
+        # Zwróć domyślny obrazek jeśli nie ma screenshotu
+        return send_from_directory('.', 'no_screenshot.png', mimetype='image/png')
+        
+    except Exception as e:
+        print(f"❌ Błąd pobierania screenshotu: {e}")
+        return jsonify({'error': str(e)})
+
+@app.route('/api/get_clients_with_screenshots')
+def get_clients_with_screenshots():
+    """Zwraca listę klientów z informacją o screenshotach"""
+    with client_lock:
+        current_time = time.time()
+        client_list = []
+        
+        for client_id, client_data in clients.items():
+            # Czyszczenie nieaktywnych klientów
+            if current_time - client_data['last_seen'] > 30:
+                continue
+            
+            has_screenshot = (
+                'last_screenshot' in client_data and 
+                'last_screenshot_time' in client_data and
+                current_time - client_data['last_screenshot_time'] < 300
+            )
+            
+            client_list.append({
+                'id': client_id,
+                'name': client_data.get('name', 'Klient'),
+                'status': 'active' if current_time - client_data['last_seen'] < 10 else 'inactive',
+                'ip': client_data.get('ip', '0.0.0.0'),
+                'has_screenshot': has_screenshot,
+                'last_screenshot_time': client_data.get('last_screenshot_time')
+            })
+        
+        return jsonify(client_list)
 
 @app.route('/api/clients')
 def get_clients():
