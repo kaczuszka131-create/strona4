@@ -1124,7 +1124,7 @@
                         const iconsHtml = icons.join(' ');
                         
                         // Użyj displayName z serwera
-                        const displayName = client.displayName || client.name || `Klient ${client.id.substring(0, 6)}`;
+                        const displayName = client.displayName || client.name || `Klient ${client.id.substring(0, 40)}`;
                         const hasCustomName = client.hasCustomName || false;
                         
                         html += `
@@ -1139,7 +1139,7 @@
                                         </strong>
                                         ${hasCustomName ? '<span class="custom-name-badge">niestandardowa</span>' : ''}
                                     </div>
-                                    <div class="client-id">ID: ${client.id.substring(0, 8)}...</div>
+                                    <div class="client-id">ID: ${client.id.substring(0, 40)}...</div>
                                     <div>IP: ${client.ip}</div>
                                 </div>
                                 <div class="client-status ${statusClass}">
