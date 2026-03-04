@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test dynamicznego połączenia</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #e7f3ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📞 Test dynamicznego połączenia</h1>
+        
+        <div class="info">
+            <strong>Klient ID:</strong> {{ client_id }}<br>
+            Wyślij testowe połączenie z wybranymi parametrami
+        </div>
+        
+        <form id="callForm">
+            <div class="form-group">
+                <label>Nazwa dzwoniącego:</label>
+                <input type="text" id="callerName" value="Jan Kowalski" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Typ źródła obrazu:</label>
+                <select id="imageType" onchange="toggleImageInput()">
+                    <option value="none">Brak obrazka</option>
+                    <option value="url">URL do obrazka</option>
+                    <option value="file">Plik lokalny</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="urlInput" style="display: none;">
+                <label>URL obrazka:</label>
+                <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg">
+            </div>
+            
+            <div class="form-group" id="fileInput" style="display: none;">
+                <label>Wybierz plik:</label>
+                <input type="file" id="imageFile" accept="image/*">
+                <small style="color: #666;">Obrazek zostanie przekonwertowany na base64</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Kolor tła:</label>
+                <select id="bgColor">
+                    <option value="black">Czarny</option>
+                    <option value="navy">Granatowy</option>
+                    <option value="darkred">Ciemnoczerwony</option>
+                    <option value="darkgreen">Ciemnozielony</option>
+                    <option value="purple">Fioletowy</option>
+                </select>
+            </div>
+            
+            <button type="button" onclick="sendCall()">Wyślij połączenie</button>
+        </form>
+        
+        <div id="result" class="result"></div>
+    </div>
+    
+    <script>
+        function toggleImageInput() {
+            const type = document.getElementById('imageType').value;
+            document.getElementById('urlInput').style.display = type === 'url' ? 'block' : 'none';
+            document.getElementById('fileInput').style.display = type === 'file' ? 'block' : 'none';
+        }
+        
+        async function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        async function sendCall() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'none';
+            
+            const data = {
+                client_id: '{{ client_id }}',
+                name: document.getElementById('callerName').value,
+                bg_color: document.getElementById('bgColor').value
+            };
+            
+            const imageType = document.getElementById('imageType').value;
+            
+            if (imageType === 'url') {
+                const url = document.getElementById('imageUrl').value;
+                if (url) {
+                    data.image_url = url;
+                }
+            } else if (imageType === 'file') {
+                const file = document.getElementById('imageFile').files[0];
+                if (file) {
+                    try {
+                        resultDiv.innerHTML = 'Konwertowanie obrazka...';
+                        resultDiv.className = 'result info';
+                        resultDiv.style.display = 'block';
+                        
+                        data.image_base64 = await fileToBase64(file);
+                    } catch (e) {
+                        resultDiv.innerHTML = '❌ Błąd konwersji pliku: ' + e.message;
+                        resultDiv.className = 'result error';
+                        resultDiv.style.display = 'block';
+                        return;
+                    }
+                }
+            }
+            
+            try {
+                resultDiv.innerHTML = 'Wysyłanie...';
+                resultDiv.className = 'result info';
+                resultDiv.style.display = 'block';
+                
+                const response = await fetch('/api/send_dynamic_call', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    resultDiv.innerHTML = '✅ Połączenie wysłane pomyślnie!';
+                    resultDiv.className = 'result success';
+                } else {
+                    resultDiv.innerHTML = '❌ Błąd: ' + result.error;
+                    resultDiv.className = 'result error';
+                }
+            } catch (e) {
+                resultDiv.innerHTML = '❌ Błąd połączenia: ' + e.message;
+                resultDiv.className = 'result error';
+            }
+            
+            resultDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
