@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Kontrolny Klientów</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖥️</text></svg>">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">🖥️</span>
+            <h1>Panel Kontrolny</h1>
+        </div>
+        <div class="status-bar">
+            <span class="status-dot" id="server-status"></span>
+            <span id="server-info">Łączenie...</span>
+            <button class="btn btn-ghost" id="refresh-btn">🔄 Odśwież</button>
+            <label class="auto-refresh">
+                <input type="checkbox" id="auto-refresh" checked>
+                Auto (3s)
+            </label>
+        </div>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab active" data-tab="clients">👥 Klienci <span class="badge" id="clients-badge">0</span></button>
+        <button class="tab" data-tab="names">📝 Nazwy</button>
+        <button class="tab" data-tab="updates">📦 Aktualizacje</button>
+        <button class="tab" data-tab="debug">🔧 Diagnostyka</button>
+    </nav>
+
+    <main>
+        <!-- ============ KLIENCI ============ -->
+        <section class="tab-panel active" id="tab-clients">
+            <div class="toolbar">
+                <input type="text" id="client-search" placeholder="🔍 Szukaj klienta (nazwa / IP / ID)..." class="input">
+                <select id="client-filter" class="input" style="max-width:180px">
+                    <option value="all">Wszyscy</option>
+                    <option value="active">Aktywni</option>
+                    <option value="inactive">Nieaktywni</option>
+                    <option value="screenshot">Z screenshotem</option>
+                    <option value="camera">Z kamerą</option>
+                </select>
+            </div>
+            <div class="clients-grid" id="clients-grid">
+                <div class="empty-state">Brak klientów. Oczekiwanie na połączenia...</div>
+            </div>
+        </section>
+
+        <!-- ============ NAZWY ============ -->
+        <section class="tab-panel" id="tab-names">
+            <div class="card">
+                <div class="card-header">
+                    <h2>📝 Plik name.txt</h2>
+                    <div>
+                        <button class="btn btn-ghost" id="names-reload">↻ Wczytaj</button>
+                        <button class="btn btn-primary" id="names-save">💾 Zapisz</button>
+                    </div>
+                </div>
+                <p class="hint">Format: <code>ID_KLIENTA=Nazwa</code> — jedna para na linię. Linie zaczynające się od <code>#</code> są ignorowane.</p>
+                <textarea id="names-editor" class="code-editor" spellcheck="false"></textarea>
+                <div class="status-msg" id="names-status"></div>
+            </div>
+        </section>
+
+        <!-- ============ AKTUALIZACJE ============ -->
+        <section class="tab-panel" id="tab-updates">
+            <div class="card">
+                <div class="card-header">
+                    <h2>📦 Dostępne pliki</h2>
+                    <button class="btn btn-ghost" id="updates-refresh">↻ Odśwież</button>
+                </div>
+                <div id="updates-list" class="updates-list">
+                    <div class="empty-state">Ładowanie...</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h2>⬆️ Wgraj nową wersję</h2></div>
+                <form id="upload-form" class="upload-form">
+                    <label>Plik .exe <input type="file" name="file" accept=".exe" required></label>
+                    <label>Wersja (np. 1.0.1) <input type="text" name="version" placeholder="1.0.1" required></label>
+                    <label>Opis <input type="text" name="description" placeholder="Nowa funkcja..."></label>
+                    <label class="checkbox">
+                        <input type="checkbox" name="force"> Wymuś aktualizację
+                    </label>
+                    <button type="submit" class="btn btn-primary">📤 Wgraj</button>
+                </form>
+                <div class="status-msg" id="upload-status"></div>
+            </div>
+
+            <div class="card">
+                <div class="card-header"><h2>📄 versions.json</h2></div>
+                <pre class="code-view" id="versions-view">Ładowanie...</pre>
+            </div>
+        </section>
+
+        <!-- ============ DEBUG ============ -->
+        <section class="tab-panel" id="tab-debug">
+            <div class="card">
+                <div class="card-header">
+                    <h2>🔧 Informacje diagnostyczne</h2>
+                    <button class="btn btn-ghost" id="debug-refresh">↻ Odśwież</button>
+                </div>
+                <pre class="code-view" id="debug-view">Ładowanie...</pre>
+            </div>
+            <div class="card">
+                <div class="card-header"><h2>💚 Ping serwera</h2></div>
+                <pre class="code-view" id="ping-view">-</pre>
+            </div>
+        </section>
+    </main>
+
+    <!-- ============ MODAL ============ -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal" id="modal-content">
+            <!-- dynamicznie -->
+        </div>
+    </div>
+
+    <!-- ============ TOAST ============ -->
+    <div id="toast-container"></div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
